@@ -24,7 +24,7 @@ static_assert(sizeof(f32) == sizeof(i32));
 static_assert(sizeof(f64) == sizeof(i64));
 
 std::vector<u8> hex_str_to_bytes(std::string hex_string);
-void disasm_bytes(const std::vector<u8>& bytes, u64 starting_address);
+void disasm_bytes(const std::vector<u8>& bytes, const u64 starting_address);
 
 int main(int argc, char** argv)
 {
@@ -34,7 +34,7 @@ int main(int argc, char** argv)
 		return 1;
 	}
 
-	std::vector<u8> bytes = hex_str_to_bytes(argv[1]);
+	const std::vector<u8> bytes = hex_str_to_bytes(argv[1]);
 	disasm_bytes(bytes, 0x0);
 
 	return 0;
@@ -48,19 +48,16 @@ std::vector<u8> hex_str_to_bytes(std::string hex_string)
 	std::erase(hex_string, ' ');
 
 	// Remove all instances of "0x" from the string
-	std::regex zero_x_pattern("0x");
+	const std::regex zero_x_pattern("0x");
 	hex_string = std::regex_replace(hex_string, zero_x_pattern, "");
 
 	while (!hex_string.empty())
 	{
 		try
 		{
-			u8 byte = 0;
-
-			if (hex_string.size() != 1)
-				byte = std::stoi(hex_string.substr(0, 2), 0, 16);
-			else
-				byte = std::stoi(hex_string.substr(0, 1), 0, 16);
+			const u8 byte = hex_string.size() != 1
+				? std::stoi(hex_string.substr(0, 2), 0, 16)
+				: std::stoi(hex_string.substr(0, 1), 0, 16);
 
 			hex_values.emplace_back(byte);
 		}
@@ -77,12 +74,12 @@ std::vector<u8> hex_str_to_bytes(std::string hex_string)
 	return hex_values;
 }
 
-void disasm_bytes(const std::vector<u8>& bytes, u64 starting_address)
+void disasm_bytes(const std::vector<u8>& bytes, const u64 starting_address)
 {
 	csh handle;
 	cs_insn* insn;
 
-	cs_mode capstone_mode = CS_MODE_64;
+	const cs_mode capstone_mode = CS_MODE_64;
 
 	if (cs_open(CS_ARCH_X86, capstone_mode, &handle) != CS_ERR_OK)
 	{
@@ -90,28 +87,27 @@ void disasm_bytes(const std::vector<u8>& bytes, u64 starting_address)
 		return;
 	}
 
-	size_t instruction_count = cs_disasm(handle, bytes.data(), bytes.size(), 0x0, 0, &insn);
-	if (instruction_count > 0)
-	{
-		constexpr u8 bytes_per_instruction = 24;
+	const size_t instruction_count = cs_disasm(handle, bytes.data(), bytes.size(), 0x0, 0, &insn);
 
-		for (size_t i = 0; i < instruction_count; ++i)
-		{
-			std::cout << std::left << "0x" << insn[i].address << ":\t" << std::setw(12) << insn[i].mnemonic << std::setw(32) << insn[i].op_str;
-
-			// Print the bytes
-			for (u8 j = 0; j < insn[i].size; ++j)
-				printf("%02x ", insn[i].bytes[j]);
-
-			std::cout << "\n";
-		}
-
-		cs_free(insn, instruction_count);
-	}
-	else
+	if (instruction_count == 0)
 	{
 		std::cout << "No instructions could be disassembled from the hex string\n";
+		cs_close(&handle);
 	}
 
+	constexpr u8 bytes_per_instruction = 24;
+
+	for (size_t i = 0; i < instruction_count; ++i)
+	{
+		std::cout << std::left << "0x" << insn[i].address << ":\t" << std::setw(12) << insn[i].mnemonic << std::setw(32) << insn[i].op_str;
+
+		// Print the bytes
+		for (u8 j = 0; j < insn[i].size; ++j)
+			printf("%02x ", insn[i].bytes[j]);
+
+		std::cout << "\n";
+	}
+
+	cs_free(insn, instruction_count);
 	cs_close(&handle);
 }
