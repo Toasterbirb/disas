@@ -28,13 +28,21 @@ void disasm_bytes(const std::vector<u8>& bytes, const u64 starting_address);
 
 int main(int argc, char** argv)
 {
+
 	if (argc != 2)
 	{
-		std::cout << "Usage: disas \"<bytes>\"\n";
+		std::cout << "Usage: disas \"<bytes>\"\nAlternatively pass '-' as the argument to read data from stdin\n";
 		return 1;
 	}
 
-	const std::vector<u8> bytes = hex_str_to_bytes(argv[1]);
+	std::string hex_str;
+
+	if (argv[1][0] == '-')
+		std::getline(std::cin, hex_str);
+	else
+		hex_str = argv[1];
+
+	const std::vector<u8> bytes = hex_str_to_bytes(hex_str);
 	disasm_bytes(bytes, 0x0);
 
 	return 0;
